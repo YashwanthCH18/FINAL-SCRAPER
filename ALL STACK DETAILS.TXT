@@ -1,0 +1,178 @@
+Updated end-to-end flow (Supabase-only storage, “approve” instead of “publish”)
+Formatting key
+• Plain-English description
+• VERB /path (caller → callee)
+• JSON request / response examples
+
+Global headers (sent by FE; added tracing & multi-tenancy)
+
+http
+Authorization: Bearer <supabase_jwt>
+Content-Type: application/json
+X-Request-Id: <uuid>
+The API-gateway validates the JWT once, extracts user_id, and forwards it as X-User-Id.
+
+1. Visitor → Sign-up (Supabase Auth, native)
+User clicks Get Started → Supabase handles /auth/v1/signup or Google OAuth.
+FE now owns a JWT – no custom endpoints needed.
+
+2. Onboarding answers → Blog stack
+POST /onboarding (Frontend → Blog Service)
+
+json
+{
+  "answers": {
+    "product_service": "Acme Analytics",
+    "ideal_customers": "SaaS founders",
+    "problem": "Lack of insights",
+    "style": "Friendly",
+    "channels": ["LinkedIn", "Blog"]
+  }
+}
+json
+{
+  "onboarding_id": "onb_42c8b1",
+  "status": "accepted"
+}
+Blog service inserts row → immediately launches enrichment scrape.
+
+3. Blog stack → Scraper stack (internal)
+POST /scraper/profile (Blog Svc → Scraper Svc)
+
+json
+{ "user_id": "b3d7d2", "display_name": "acme" }
+json
+{ "job_id": "scrp_6a1e59" }
+Scraper crawls, chunks, embeds → Pinecone namespace = user_id.
+
+4. Dashboard load
+FE shows cards (Blog, LinkedIn, Video).
+Optional GET /blog/list to pre-fill drafts.
+
+5A. Auto-generate blog draft
+POST /blog/auto-generate
+
+json
+{
+  "tone": "Friendly",
+  "length": 900,
+  "extra_instructions": "Include a CTA to book a demo"
+}
+json
+{ "blog_id": "blg_901aaf", "job_id": "gen_12af90" }
+5B. Manual topic flow
+Gather fresh context
+POST /scraper/topic
+json
+{ "topic": "SaaS retention metrics", "max_pages": 20 }
+→ { "job_id": "scrp_77b214" }
+Generate draft from that topic
+POST /blog/manual-generate
+json
+{ "topic": "SaaS retention metrics", "tone": "Expert", "length": 800 }
+→ { "blog_id": "blg_9122b2", "job_id": "gen_55c830" }
+6. Poll any long-running job
+GET /status/{job_id}
+
+json
+{
+  "state": "in_progress",        // queued | in_progress | completed | failed
+  "progress": 45,                // % optional
+  "resource_type": "blog_post",  // blog_post | linkedin_post | video
+  "resource_id": null,
+  "error": null
+}
+Implementation: a shared jobs table in Supabase; each service updates its row.
+FE polls until state == "completed" then fetches resource_id.
+
+7. Retrieve & edit draft
+GET /blog/{blog_id}
+
+json
+{
+  "id": "blg_901aaf",
+  "title": "10 Ways to Reduce Churn",
+  "html_content": "<h1>…</h1>",
+  "status": "draft"
+}
+PATCH /blog/{blog_id} (save edits or image paths)
+
+json
+{
+  "html_content": "<h1>Updated…</h1>",
+  "meta_description": "Practical churn tactics for SaaS"
+}
+200 OK
+
+Uploaded images live in Supabase Storage
+bucket: blog_media   key: <user_id>/<blog_id>/<file>.jpg
+
+8. User approves final draft (no publishing yet)
+POST /blog/{blog_id}/approve
+
+Request body empty
+
+json
+{ "status": "approved" }
+Side-effects: status = approved, timestamp stored.
+Outer-blog stack (to be designed later) will pick up approved rows and handle sub-domain publishing or scheduling.
+
+9. Generate LinkedIn content
+POST /linkedin/generate
+
+json
+{
+  "style": "carousel",
+  "tone": "Friendly",
+  "length": 1300,
+  "source_blog_id": "blg_901aaf"
+}
+json
+{ "post_id": "ln_45bd77", "job_id": "gen_7780c1" }
+10. Edit & publish LinkedIn
+GET /linkedin/{post_id} and PATCH /linkedin/{post_id} (same pattern as blogs).
+
+POST /linkedin/{post_id}/publish
+
+json
+{ "schedule_at": null }          // null = publish now
+json
+{ "linkedin_url": "https://www.linkedin.com/posts/12345" }
+Data & tenant isolation
+Layer	Isolation method
+Pinecone	namespace = user_id
+Supabase Storage	blog_media/<user_id>/… & RLS policies
+Postgres tables	Row-Level Security user_id = auth.uid()
+No Cloudflare R2 is used; all binaries (images now, videos later) live in Supabase Storage.
+
+Future video stack (placeholder)
+Will reuse the same pattern:
+
+POST /video/generate
+GET  /video/{id}
+PATCH /video/{id}
+POST /video/{id}/publish
+Media saved to storage://video_media/<user_id>/<video_id>/…
+
+Stack-to-stack calls (current)
+Blog Svc → Scraper Svc
+/scraper/profile, /scraper/topic
+Blog Svc ↔ Pinecone
+upsert, query
+LinkedIn Svc → LinkedIn API
+/ugcPosts with generated JSON
+Everything else is Frontend ↔ API Gateway ↔ individual micro-services using the contracts shown above.
+
+Feedback submitted
+an hour ago
+Start with History Ctrl + ⏎
+Press Enter again to interrupt and send a new message
+Start with History Ctrl + ⏎
+
+
+
+Write
+Chat
+ChatWriteLegacy
+
+o3 (high reasoning)

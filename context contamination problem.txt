@@ -1,0 +1,63 @@
+Of course. Here is a clear and concise prompt you can provide to the other AI coder working on the Blog Service.
+
+Prompt for the Blog Service AI Coder
+Subject: Important Update for Pinecone Data Retrieval in the Blog Service
+
+Hello! The Scraper Service has been updated to add critical metadata to all data chunks stored in Pinecone. This change is necessary to prevent context contamination and ensure the high quality of our generated content. Please update the Blog Service's data retrieval logic accordingly.
+
+The Problem We're Solving:
+
+Previously, all scraped content for a user (both from their initial profile and from specific topic scrapes) was stored together in the same Pinecone namespace. This meant that when generating a blog post on a specific topic, the query might pull in irrelevant information from the user's general profile, reducing the focus and quality of the generated article.
+
+The Solution: Metadata Filtering
+
+The Scraper Service now adds the following metadata fields to every vector it upserts into Pinecone:
+
+source_type: Either 'profile' (for the initial onboarding scrape) or 'topic' (for manual scrapes).
+job_id: The unique ID of the scrape job.
+topic
+: The specific topic string for manual scrapes.
+Required Action:
+
+You need to update the Blog Service to use the filter parameter in all Pinecone queries. This will allow you to precisely target the correct context for each generation task.
+
+1. For Auto-Generation (based on user profile):
+
+When the user requests an auto-generated blog post, filter the Pinecone query to only include context from the initial profile scrape.
+
+Example Implementation:
+
+python
+def get_context_for_auto_generation(user_id: str, query_embedding: list) -> list:
+    """
+    Retrieves context from Pinecone using only the user's initial
+    profile scrape.
+    """
+    query_response = pc_index.query(
+        vector=query_embedding,
+        top_k=10,
+        namespace=user_id,
+        filter={"source_type": "profile"} # <-- Key change
+    )
+    # Process and return the results
+    return [match['metadata']['text'] for match in query_response['matches']]
+2. For Manual-Generation (based on a specific topic):
+
+When the user provides a topic, the Blog Service will first call the Scraper Service, which returns a job_id. Use this job_id to filter the Pinecone query, ensuring you only retrieve context from that specific scraping job.
+
+Example Implementation:
+
+python
+def get_context_for_manual_generation(user_id: str, query_embedding: list, topic_scrape_job_id: str) -> list:
+    """
+    Retrieves context from a specific topic scrape using its job_id.
+    """
+    query_response = pc_index.query(
+        vector=query_embedding,
+        top_k=10,
+        namespace=user_id,
+        filter={"job_id": topic_scrape_job_id} # <-- Key change
+    )
+    # Process and return the results
+    return [match['metadata']['text'] for match in query_response['matches']]
+By implementing these changes, you will significantly improve the relevance and accuracy of the context used for content generation, leading to a much better final product. Thank you
