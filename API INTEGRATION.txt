@@ -16,14 +16,16 @@ They click the "Complete Setup" button.
 The frontend packages the 5 answers into a single JSON object.
 It makes a POST request to the Blog Service's /onboarding endpoint with this JSON body and the user's JWT in the Authorization header.
 Upon a successful response (e.g., 200 OK), the frontend's job is done. It should immediately navigate the user to their main dashboard. The user should not have to wait or do anything else.
+
 Endpoint 2: POST /scraper/profile (to the Scraper Service)
-What it does: This endpoint instructs the Scraper Service to begin scraping the user's primary website to build their "Content DNA."
+What it does: This endpoint instructs the Scraper Service to perform a targeted web scrape based on the user's core topic of interest (from onboarding question #3) to build their "Content DNA."
 Why it's required: This is the engine of the automatic analysis. It gathers the raw data needed to understand the user's brand.
 Frontend Integration: NONE.
 This endpoint is never called by the frontend. It is called server-to-server by the Blog Service immediately after the /onboarding call succeeds.
 Why: This is a critical architectural decision. It makes the user experience seamless. The user clicks one button, and the backend handles the complex chain of events. The frontend doesn't need to manage or even know about this second step.
+
 Journey 2: Manual Content Creation (On-Demand Research & Generation)
-Goal: A clear, two-stage process where the user first initiates research on a topic and then, once the research is complete, generates content based on it.
+Goal: A simple, fire-and-forget process where the user initiates research on a topic and then generates content based on it after a short wait.
 
 Stage A: Gathering Research
 Endpoint 3: POST /scraper/topic (to the Scraper Service)
@@ -36,29 +38,18 @@ Flow:
 The user types their desired topic (e.g., "SaaS pricing strategies in 2025") into the input field.
 They click the "Gather Research" button.
 The frontend takes the text from the input field and sends it in the body of a POST request to /scraper/topic.
-The API will respond almost instantly with a job_id. The frontend must save this job_id in its state.
-The UI must now change to a "researching" state. Disable the input field and button, and show a progress indicator.
-Endpoint 4: GET /status/{job_id} (to the Scraper Service)
-What it does: Provides the real-time status and progress of a background scraping job.
-Why it's required: This is essential for an asynchronous, non-blocking user experience. It allows the frontend to give the user live feedback on a long-running task.
-Frontend Integration:
-Where: This is used in the logic of the same page, immediately after the /scraper/topic call returns a job_id.
-Button: No button triggers this. It is triggered by a timer.
-Flow:
-After saving the job_id, the frontend starts a polling loop (e.g., using setInterval in JavaScript) that calls this endpoint every 3-5 seconds.
-With each response, the frontend updates the UI. For example, update a progress bar with the progress value from the response.
-The loop continues until the state field in the response is either "completed" or "failed".
-If state is "completed", stop polling and change the UI for the next stage.
-If state is "failed", stop polling and display the error message to the user.
+The API will respond almost instantly with a confirmation message like {"status": "scraping_started"}. It will NOT return a job_id.
+The UI should now change to a "researching" state. For example, disable the input field and show a message like "Research in progress... You can generate content in a minute."
+
 Stage B: Generating the Content
-Endpoint 5: POST /blog/manual-generate (to the Blog Service)
+Endpoint 4: POST /blog/manual-generate (to the Blog Service)
 What it does: Takes the user's original prompt and uses the previously scraped research to generate a complete blog post.
 Why it's required: This is the final, value-delivery step where the AI performs its creative work.
 Frontend Integration:
-Where: On the same page, after the research stage is complete.
-Button: A new button should appear once the status is "completed". This button should be labeled "Generate Blog Post".
+Where: On the same page, after the research stage has been initiated.
+Button: A button labeled "Generate Blog Post" should be available.
 Flow:
-The UI indicates that research is 100% complete.
+After clicking "Gather Research," the user waits a short period (e.g., 30-60 seconds) to allow the scraper to work.
 The user clicks the "Generate Blog Post" button.
 The frontend makes a POST request to /blog/manual-generate. The body should contain the original prompt the user typed in Stage A.
-This endpoint may also return a job_id. If so, the frontend should begin a new polling loop on the Blog Service's own status endpoint to show the progress of the final content generation.
+The frontend can then show a loading indicator while the Blog Service generates the final content.

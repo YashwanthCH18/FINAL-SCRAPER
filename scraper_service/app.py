@@ -12,7 +12,6 @@ import os
 import uuid
 import asyncio
 from typing import List, Optional, Dict
-from datetime import datetime
 
 import httpx
 from fastapi import FastAPI, Depends, HTTPException, BackgroundTasks, Request, Header
@@ -91,86 +90,10 @@ class TopicRequest(BaseModel):
     topic: str = Field(..., min_length=3, max_length=200)
     max_pages: int = Field(10, ge=1, le=50)  # Default to 10, but allow override
 
-class JobStatus(BaseModel):
-    state: str
-    progress: int = 0
-    result_resource_id: Optional[str] = None
-    error: Optional[str] = None
-
 # ---------------------------------------------------------------------------
 # FastAPI application
 # ---------------------------------------------------------------------------
 app = FastAPI(title="Scraper Service", version="0.1.0")
-
-# ---------------------------------------------------------------------------
-# DB helpers (Supabase) – with in-memory fallback for local dev
-# ---------------------------------------------------------------------------
-
-_jobs_cache: Dict[str, Dict] = {}
-
-
-def insert_job(job_id: str, job_type: str, user_id: str):
-    # user_id is now passed in directly
-    payload = {
-        "id": job_id,
-        "user_id": user_id,
-        "service": "scraper",
-        "job_type": job_type,
-        "status": "queued",
-        "progress": 0,
-    }
-    try:
-        if supabase:
-            print(f"[DB_DEBUG] Attempting to insert job: {payload}")
-            response = supabase.table("jobs").insert(payload).execute()
-            print(f"[DB_DEBUG] Supabase insert response: {response.data}")
-        else:
-            print("insert_job fallback: no supabase client")
-            _jobs_cache[job_id] = payload
-    except Exception as exc:
-        print("insert_job fallback", exc)
-        _jobs_cache[job_id] = payload
-
-
-def update_job(job_id: str, user_id: str, **kwargs):
-    payload = kwargs.copy()
-    payload["updated_at"] = datetime.now().isoformat()
-
-    try:
-        if supabase:
-            print(f"[DB_DEBUG] Attempting to update job {job_id} with: {payload}")
-            response = supabase.table("jobs").update(payload).eq("id", job_id).execute()
-            print(f"[DB_DEBUG] Supabase update response: {response.data}")
-        else:
-            print("update_job fallback: no supabase client")
-            if job_id in _jobs_cache:
-                _jobs_cache[job_id].update(payload)
-    except Exception as exc:
-        print("update_job fallback", exc)
-        if job_id in _jobs_cache:
-            _jobs_cache[job_id].update(payload)
-
-
-def fetch_job(job_id: str, user_id: str) -> Dict:
-    try:
-        row = (
-            supabase.table("jobs")
-            .select("*")
-            .eq("id", job_id)
-            .eq("user_id", user_id)
-            .single()
-            .execute()
-            .data
-        )
-        if row:
-            return row
-    except Exception as exc:
-        print("fetch_job fallback", exc)
-    # Fallback to in-memory cache
-    row = _jobs_cache.get(job_id)
-    if not row:
-        raise HTTPException(status_code=404, detail="Job not found")
-    return row
 
 # ---------------------------------------------------------------------------
 # Crawling & embedding core
@@ -246,7 +169,9 @@ async def upsert_text_chunks(namespace: str, chunks: List[Dict]):
     """
     pc_index.upsert_records(records=chunks, namespace=namespace)
 
-async def crawl_and_embed(urls: List[str], job_id: str, source_type: str, user_id: str, topic: Optional[str] = None):
+async def crawl_and_embed(
+    urls: List[str], user_id: str, source_type: str, topic: Optional[str] = None
+):
     total = len(urls)
     completed = 0
     for url in urls:
@@ -261,7 +186,6 @@ async def crawl_and_embed(urls: List[str], job_id: str, source_type: str, user_i
                 "text": chunk,
                 "url": url,
                 "source_type": source_type,
-                "job_id": job_id,
                 "topic": topic
             } for chunk in chunks]
             # Integrated embedding: Pinecone converts chunk_text to vectors automatically.
@@ -270,18 +194,14 @@ async def crawl_and_embed(urls: List[str], job_id: str, source_type: str, user_i
             # log and skip
             print(f"Error crawling {url}: {exc}")
         completed += 1
-        progress = int(completed / total * 100)
-        update_job(job_id, user_id, progress=progress, status="in_progress")
-
-    update_job(job_id, user_id, progress=100, status="completed")
+        print(f"Starting topic crawl for '{topic}'. User: {user_id}, Source: {source_type}")
 
 
-async def crawl_topic_background(topic: str, max_pages: int, job_id: str, user_id: str):
-    update_job(job_id, user_id, status="in_progress")
+async def crawl_topic_background(topic: str, max_pages: int, user_id: str, source_type: str):
     try:
         urls = await rapid_search(topic, max_pages)
         print(f"[debug] rapid_search returned {len(urls)} urls for topic '{topic}'")
-        await crawl_and_embed(urls, job_id, "topic", user_id, topic=topic)
+        await crawl_and_embed(urls, user_id, source_type, topic=topic)
         # Notify blog service if configured, but don't fail the whole job if callback is unreachable.
         if BLOG_CALLBACK_URL and BLOG_CALLBACK_TOKEN:
             try:
@@ -291,7 +211,7 @@ async def crawl_topic_background(topic: str, max_pages: int, job_id: str, user_i
                         "X-Internal-Token": BLOG_CALLBACK_TOKEN,
                         "X-User-Id": user_id,
                     },
-                    json={"topic": topic, "job_id": job_id},
+                    json={"topic": topic},
                     timeout=20,
                 )
             except Exception as cb_exc:
@@ -300,61 +220,52 @@ async def crawl_topic_background(topic: str, max_pages: int, job_id: str, user_i
 
     except Exception as exc:
         print("crawl_topic_background failed", exc)
-        update_job(job_id, user_id, status="failed", error=str(exc))
 
 # ---------------------------------------------------------------------------
 # Routes
 # ---------------------------------------------------------------------------
 
-@app.post("/scraper/profile", status_code=202)
-async def scrape_profile(background_tasks: BackgroundTasks, user_id: str = Depends(get_user_id)):
-    job_id = f"scrp_{uuid.uuid4().hex[:8]}"
-    insert_job(job_id, job_type="profile", user_id=user_id)
-
-    # 1. fetch onboarding data to get the website URL and the topic for metadata
-    onboarding = (
+@app.post("/scraper/profile")
+async def scrape_profile(
+    background_tasks: BackgroundTasks, user_id: str = Depends(get_user_id)
+):
+    """
+    Automatically scrapes content based on the user's primary topic of interest
+    provided during onboarding (question 3).
+    """
+    # 1. Fetch onboarding data to get the topic for metadata
+    response = (
         supabase.table("onboarding")
-        .select("question1", "question3") # Fetch both website and topic source
+        .select("question3")
         .eq("user_id", user_id)
-        .single()
         .execute()
-        .data
     )
 
-    if not onboarding:
-        # Handle case where onboarding data doesn't exist for the user
-        update_job(job_id, user_id, status="failed", error="Onboarding data not found.")
-        return {"job_id": job_id, "status": "failed", "detail": "Onboarding data not found."}
+    if not response.data or not response.data[0].get("question3"):
+        raise HTTPException(
+            status_code=404,
+            detail="Onboarding topic (question 3) not found for this user.",
+        )
 
-    domain = onboarding.get("question1")
-    # Use the answer to question3 as the consistent topic for profile data
-    topic = onboarding.get("question3")
+    topic = response.data[0].get("question3")
+    # Use a default number of pages for the automatic profile scrape
+    DEFAULT_PROFILE_MAX_PAGES = 10
 
-    urls = [f"https://{domain}"] if domain else []
+    background_tasks.add_task(
+        crawl_topic_background, topic, DEFAULT_PROFILE_MAX_PAGES, user_id, "profile"
+    )
 
-    background_tasks.add_task(crawl_and_embed, urls, job_id, "profile", user_id, topic=topic)
-    return {"job_id": job_id}
-
-
-@app.post("/scraper/topic", status_code=202)
-async def scrape_topic(req: TopicRequest, background_tasks: BackgroundTasks, user_id: str = Depends(get_user_id)):
-    job_id = f"scrp_{uuid.uuid4().hex[:8]}"
-    insert_job(job_id, job_type="topic", user_id=user_id)
-    background_tasks.add_task(crawl_topic_background, req.topic, req.max_pages, job_id, user_id)
-    return {"job_id": job_id}
+    return {"status": "scraping_started", "source": "profile"}
 
 
-@app.get("/status/{job_id}", response_model=JobStatus)
-async def job_status(job_id: str, user_id: str = Depends(get_user_id)):
-    row = fetch_job(job_id, user_id)
-    if row["user_id"] != user_id:
-        raise HTTPException(status_code=403, detail="Forbidden")
-    return {
-        "state": row["status"],
-        "progress": row.get("progress", 0),
-        "result_resource_id": row.get("result_resource"),
-        "error": row.get("error"),
-    }
+@app.post("/scraper/topic")
+async def scrape_topic(
+    req: TopicRequest,
+    background_tasks: BackgroundTasks,
+    user_id: str = Depends(get_user_id),
+):
+    background_tasks.add_task(crawl_topic_background, req.topic, req.max_pages, user_id, "topic")
+    return {"status": "scraping_started", "source": "topic"}
 
 
 @app.get("/healthz")
