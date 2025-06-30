@@ -1,4 +1,3 @@
-
 """Scraper micro-service (local-first).
 FastAPI app that exposes:
   • POST /scraper/profile
@@ -13,6 +12,7 @@ import os
 import uuid
 import asyncio
 from typing import List, Optional, Dict
+from datetime import datetime
 
 import httpx
 from fastapi import FastAPI, Depends, HTTPException, BackgroundTasks, Request, Header
@@ -68,22 +68,21 @@ class UserCtx(BaseModel):
     user_id: str
 
 
-def get_user_id(request: Request, x_user_id: Optional[str] = Header(None)) -> str:
-    """Extract tenant id from X-User-Id header (injected by API-Gateway).
-    Falls back to JWT 'sub' claim when running locally without gateway."""
-    if x_user_id:
-        return x_user_id
-    # In local dev, Supabase JWT is passed directly; we parse "sub".
-    auth_header: str = request.headers.get("authorization", "")
-    if not auth_header.startswith("Bearer "):
-        raise HTTPException(status_code=401, detail="Missing bearer token")
-    token = auth_header.split(" ", 1)[1]
+async def get_user_id(authorization: str = Header(...)) -> str:
+    if not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Invalid authorization scheme")
+    token = authorization.split(" ")[1]
     try:
-        import jwt
-        payload = jwt.decode(token, options={"verify_signature": False})
-        return payload["sub"]
-    except Exception:
-        raise HTTPException(status_code=401, detail="Unable to extract user id")
+        # Use get_user to validate the JWT and get user details
+        user_response = supabase.auth.get_user(token)
+        if not user_response.user:
+            raise HTTPException(status_code=401, detail="Invalid token")
+        user_id = user_response.user.id
+        return user_id
+    except Exception as e:
+        print(f"Token validation error: {e}")
+        raise HTTPException(status_code=401, detail="Invalid or expired token")
+
 
 # ---------------------------------------------------------------------------
 # Pydantic models
@@ -110,7 +109,8 @@ app = FastAPI(title="Scraper Service", version="0.1.0")
 _jobs_cache: Dict[str, Dict] = {}
 
 
-def insert_job(job_id: str, user_id: str, job_type: str):
+def insert_job(job_id: str, job_type: str, user_id: str):
+    # user_id is now passed in directly
     payload = {
         "id": job_id,
         "user_id": user_id,
@@ -120,27 +120,44 @@ def insert_job(job_id: str, user_id: str, job_type: str):
         "progress": 0,
     }
     try:
-        supabase.table("jobs").insert(payload).execute()
+        if supabase:
+            print(f"[DB_DEBUG] Attempting to insert job: {payload}")
+            response = supabase.table("jobs").insert(payload).execute()
+            print(f"[DB_DEBUG] Supabase insert response: {response.data}")
+        else:
+            print("insert_job fallback: no supabase client")
+            _jobs_cache[job_id] = payload
     except Exception as exc:
         print("insert_job fallback", exc)
         _jobs_cache[job_id] = payload
 
 
-def update_job(job_id: str, **fields):
+def update_job(job_id: str, user_id: str, **kwargs):
+    payload = kwargs.copy()
+    payload["updated_at"] = datetime.now().isoformat()
+
     try:
-        supabase.table("jobs").update(fields).eq("id", job_id).execute()
+        if supabase:
+            print(f"[DB_DEBUG] Attempting to update job {job_id} with: {payload}")
+            response = supabase.table("jobs").update(payload).eq("id", job_id).execute()
+            print(f"[DB_DEBUG] Supabase update response: {response.data}")
+        else:
+            print("update_job fallback: no supabase client")
+            if job_id in _jobs_cache:
+                _jobs_cache[job_id].update(payload)
     except Exception as exc:
         print("update_job fallback", exc)
         if job_id in _jobs_cache:
-            _jobs_cache[job_id].update(fields)
+            _jobs_cache[job_id].update(payload)
 
 
-def fetch_job(job_id: str) -> Dict:
+def fetch_job(job_id: str, user_id: str) -> Dict:
     try:
         row = (
             supabase.table("jobs")
             .select("*")
             .eq("id", job_id)
+            .eq("user_id", user_id)
             .single()
             .execute()
             .data
@@ -229,7 +246,7 @@ async def upsert_text_chunks(namespace: str, chunks: List[Dict]):
     """
     pc_index.upsert_records(records=chunks, namespace=namespace)
 
-async def crawl_and_embed(urls: List[str], user_id: str, job_id: str, source_type: str, topic: Optional[str] = None):
+async def crawl_and_embed(urls: List[str], job_id: str, source_type: str, user_id: str, topic: Optional[str] = None):
     total = len(urls)
     completed = 0
     for url in urls:
@@ -254,17 +271,17 @@ async def crawl_and_embed(urls: List[str], user_id: str, job_id: str, source_typ
             print(f"Error crawling {url}: {exc}")
         completed += 1
         progress = int(completed / total * 100)
-        update_job(job_id, progress=progress, status="in_progress")
+        update_job(job_id, user_id, progress=progress, status="in_progress")
 
-    update_job(job_id, progress=100, status="completed")
+    update_job(job_id, user_id, progress=100, status="completed")
 
 
-async def crawl_topic_background(topic: str, max_pages: int, user_id: str, job_id: str):
-    update_job(job_id, status="in_progress")
+async def crawl_topic_background(topic: str, max_pages: int, job_id: str, user_id: str):
+    update_job(job_id, user_id, status="in_progress")
     try:
         urls = await rapid_search(topic, max_pages)
         print(f"[debug] rapid_search returned {len(urls)} urls for topic '{topic}'")
-        await crawl_and_embed(urls, user_id, job_id, source_type="topic", topic=topic)
+        await crawl_and_embed(urls, job_id, "topic", user_id, topic=topic)
         # Notify blog service if configured, but don't fail the whole job if callback is unreachable.
         if BLOG_CALLBACK_URL and BLOG_CALLBACK_TOKEN:
             try:
@@ -283,7 +300,7 @@ async def crawl_topic_background(topic: str, max_pages: int, user_id: str, job_i
 
     except Exception as exc:
         print("crawl_topic_background failed", exc)
-        update_job(job_id, status="failed", error=str(exc))
+        update_job(job_id, user_id, status="failed", error=str(exc))
 
 # ---------------------------------------------------------------------------
 # Routes
@@ -292,35 +309,44 @@ async def crawl_topic_background(topic: str, max_pages: int, user_id: str, job_i
 @app.post("/scraper/profile", status_code=202)
 async def scrape_profile(background_tasks: BackgroundTasks, user_id: str = Depends(get_user_id)):
     job_id = f"scrp_{uuid.uuid4().hex[:8]}"
-    insert_job(job_id, user_id, job_type="profile")
+    insert_job(job_id, job_type="profile", user_id=user_id)
 
-    # 1. fetch onboarding to guess domain (simple placeholder)
+    # 1. fetch onboarding data to get the website URL and the topic for metadata
     onboarding = (
         supabase.table("onboarding")
-        .select("question1")
+        .select("question1", "question3") # Fetch both website and topic source
         .eq("user_id", user_id)
         .single()
         .execute()
         .data
     )
-    domain = onboarding["question1"] if onboarding else None
+
+    if not onboarding:
+        # Handle case where onboarding data doesn't exist for the user
+        update_job(job_id, user_id, status="failed", error="Onboarding data not found.")
+        return {"job_id": job_id, "status": "failed", "detail": "Onboarding data not found."}
+
+    domain = onboarding.get("question1")
+    # Use the answer to question3 as the consistent topic for profile data
+    topic = onboarding.get("question3")
+
     urls = [f"https://{domain}"] if domain else []
 
-    background_tasks.add_task(crawl_and_embed, urls, user_id, job_id, source_type="profile")
+    background_tasks.add_task(crawl_and_embed, urls, job_id, "profile", user_id, topic=topic)
     return {"job_id": job_id}
 
 
 @app.post("/scraper/topic", status_code=202)
 async def scrape_topic(req: TopicRequest, background_tasks: BackgroundTasks, user_id: str = Depends(get_user_id)):
     job_id = f"scrp_{uuid.uuid4().hex[:8]}"
-    insert_job(job_id, user_id, job_type="topic")
-    background_tasks.add_task(crawl_topic_background, req.topic, req.max_pages, user_id, job_id)
+    insert_job(job_id, job_type="topic", user_id=user_id)
+    background_tasks.add_task(crawl_topic_background, req.topic, req.max_pages, job_id, user_id)
     return {"job_id": job_id}
 
 
 @app.get("/status/{job_id}", response_model=JobStatus)
 async def job_status(job_id: str, user_id: str = Depends(get_user_id)):
-    row = fetch_job(job_id)
+    row = fetch_job(job_id, user_id)
     if row["user_id"] != user_id:
         raise HTTPException(status_code=403, detail="Forbidden")
     return {

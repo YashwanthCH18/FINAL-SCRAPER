@@ -1,0 +1,17 @@
+CREATE TABLE public.jobs (
+  id TEXT NOT NULL,
+  user_id UUID,
+  service TEXT,
+  job_type TEXT,
+  status TEXT,
+  progress INTEGER,
+  error TEXT,
+  result_resource_id TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  PRIMARY KEY (id),
+  FOREIGN KEY (user_id) REFERENCES auth.users(id)
+);
+
+-- Optional: Enable Row Level Security (good practice)
+ALTER TABLE public.jobs ENABLE ROW LEVEL SECURITY;

@@ -1,0 +1,416 @@
+{
+  "entities": [
+    {
+      "name": "Social Media Automation Platform",
+      "entityType": "Project",
+      "observations": [
+        "A B2B social media automation platform for founders and bootstrapped startups."
+      ]
+    },
+    {
+      "name": "Next.js",
+      "entityType": "Technology",
+      "observations": [
+        "Used for the frontend."
+      ]
+    },
+    {
+      "name": "Python",
+      "entityType": "Technology",
+      "observations": [
+        "Used for the backend."
+      ]
+    },
+    {
+      "name": "FastAPI",
+      "entityType": "Technology",
+      "observations": [
+        "Used as the backend framework, connecting to the frontend."
+      ]
+    },
+    {
+      "name": "Supabase",
+      "entityType": "Technology",
+      "observations": [
+        "Used for authentication, database (Postgres), and file storage."
+      ]
+    },
+    {
+      "name": "Pinecone",
+      "entityType": "Technology",
+      "observations": [
+        "Used as the vector database for storing scraped and generated content embeddings."
+      ]
+    },
+    {
+      "name": "Microservices",
+      "entityType": "Architecture",
+      "observations": [
+        "The backend is designed with a microservices architecture."
+      ]
+    },
+    {
+      "name": "Scraper Service",
+      "entityType": "Microservice",
+      "observations": [
+        "Scrapes data from the web based on user profiles or specific topics."
+      ]
+    },
+    {
+      "name": "Blog Service",
+      "entityType": "Microservice",
+      "observations": [
+        "Generates and manages blog content."
+      ]
+    },
+    {
+      "name": "LinkedIn Service",
+      "entityType": "Microservice",
+      "observations": [
+        "Generates and publishes LinkedIn posts."
+      ]
+    },
+    {
+      "name": "Video Generator Service",
+      "entityType": "Microservice",
+      "observations": [
+        "Placeholder for future video content generation."
+      ]
+    },
+    {
+      "name": "jobs Table",
+      "entityType": "Database Table",
+      "observations": [
+        "A shared table in Supabase to track the status of long-running asynchronous jobs from all microservices."
+      ]
+    }
+  ]
+}
+
+OUTPUT
+
+[
+  {
+    "entityType": "Project",
+    "name": "Social Media Automation Platform",
+    "observations": [
+      "A B2B social media automation platform for founders and bootstrapped startups."
+    ]
+  },
+  {
+    "entityType": "Technology",
+    "name": "Next.js",
+    "observations": [
+      "Used for the frontend."
+    ]
+  },
+  {
+    "entityType": "Technology",
+    "name": "Python",
+    "observations": [
+      "Used for the backend."
+    ]
+  },
+  {
+    "entityType": "Technology",
+    "name": "FastAPI",
+    "observations": [
+      "Used as the backend framework, connecting to the frontend."
+    ]
+  },
+  {
+    "entityType": "Technology",
+    "name": "Supabase",
+    "observations": [
+      "Used for authentication, database (Postgres), and file storage."
+    ]
+  },
+  {
+    "entityType": "Technology",
+    "name": "Pinecone",
+    "observations": [
+      "Used as the vector database for storing scraped and generated content embeddings."
+    ]
+  },
+  {
+    "entityType": "Architecture",
+    "name": "Microservices",
+    "observations": [
+      "The backend is designed with a microservices architecture."
+    ]
+  },
+  {
+    "entityType": "Microservice",
+    "name": "Scraper Service",
+    "observations": [
+      "Scrapes data from the web based on user profiles or specific topics."
+    ]
+  },
+  {
+    "entityType": "Microservice",
+    "name": "Blog Service",
+    "observations": [
+      "Generates and manages blog content."
+    ]
+  },
+  {
+    "entityType": "Microservice",
+    "name": "LinkedIn Service",
+    "observations": [
+      "Generates and publishes LinkedIn posts."
+    ]
+  },
+  {
+    "entityType": "Microservice",
+    "name": "Video Generator Service",
+    "observations": [
+      "Placeholder for future video content generation."
+    ]
+  },
+  {
+    "entityType": "Database Table",
+    "name": "jobs Table",
+    "observations": [
+      "A shared table in Supabase to track the status of long-running asynchronous jobs from all microservices."
+    ]
+  }
+]
+
+
+{
+  "relations": [
+    {
+      "from": "Social Media Automation Platform",
+      "to": "Next.js",
+      "relationType": "uses"
+    },
+    {
+      "from": "Social Media Automation Platform",
+      "to": "Python",
+      "relationType": "uses"
+    },
+    {
+      "from": "Social Media Automation Platform",
+      "to": "FastAPI",
+      "relationType": "uses"
+    },
+    {
+      "from": "Social Media Automation Platform",
+      "to": "Supabase",
+      "relationType": "uses"
+    },
+    {
+      "from": "Social Media Automation Platform",
+      "to": "Pinecone",
+      "relationType": "uses"
+    },
+    {
+      "from": "Social Media Automation Platform",
+      "to": "Microservices",
+      "relationType": "has architecture"
+    },
+    {
+      "from": "Microservices",
+      "to": "Scraper Service",
+      "relationType": "includes"
+    },
+    {
+      "from": "Microservices",
+      "to": "Blog Service",
+      "relationType": "includes"
+    },
+    {
+      "from": "Microservices",
+      "to": "LinkedIn Service",
+      "relationType": "includes"
+    },
+    {
+      "from": "Blog Service",
+      "to": "Scraper Service",
+      "relationType": "calls"
+    },
+    {
+      "from": "Scraper Service",
+      "to": "Pinecone",
+      "relationType": "writes to"
+    },
+    {
+      "from": "Blog Service",
+      "to": "jobs Table",
+      "relationType": "updates"
+    },
+    {
+      "from": "Scraper Service",
+      "to": "jobs Table",
+      "relationType": "updates"
+    }
+  ]
+}
+Output
+
+[
+  {
+    "from": "Social Media Automation Platform",
+    "relationType": "uses",
+    "to": "Next.js"
+  },
+  {
+    "from": "Social Media Automation Platform",
+    "relationType": "uses",
+    "to": "Python"
+  },
+  {
+    "from": "Social Media Automation Platform",
+    "relationType": "uses",
+    "to": "FastAPI"
+  },
+  {
+    "from": "Social Media Automation Platform",
+    "relationType": "uses",
+    "to": "Supabase"
+  },
+  {
+    "from": "Social Media Automation Platform",
+    "relationType": "uses",
+    "to": "Pinecone"
+  },
+  {
+    "from": "Social Media Automation Platform",
+    "relationType": "has architecture",
+    "to": "Microservices"
+  },
+  {
+    "from": "Microservices",
+    "relationType": "includes",
+    "to": "Scraper Service"
+  },
+  {
+    "from": "Microservices",
+    "relationType": "includes",
+    "to": "Blog Service"
+  },
+  {
+    "from": "Microservices",
+    "relationType": "includes",
+    "to": "LinkedIn Service"
+  },
+  {
+    "from": "Blog Service",
+    "relationType": "calls",
+    "to": "Scraper Service"
+  },
+  {
+    "from": "Scraper Service",
+    "relationType": "writes to",
+    "to": "Pinecone"
+  },
+  {
+    "from": "Blog Service",
+    "relationType": "updates",
+    "to": "jobs Table"
+  },
+  {
+    "from": "Scraper Service",
+    "relationType": "updates",
+    "to": "jobs Table"
+  }
+]
+
+
+
+
+{
+  "observations": [
+    {
+      "entityName": "Supabase",
+      "contents": [
+        "Provides user authentication via email/password and Google OAuth.",
+        "Stores user onboarding answers in an 'onboarding' table.",
+        "Stores generated blog content in 'blog_posts' and 'blog_seo' tables.",
+        "Provides file storage for media assets in buckets like 'blog_media'.",
+        "Is used for a shared 'jobs' table for tracking asynchronous task status across all microservices."
+      ]
+    },
+    {
+      "entityName": "Scraper Service",
+      "contents": [
+        "Exposes a POST /scraper/profile endpoint for initial user data enrichment.",
+        "Exposes a POST /scraper/topic endpoint for scraping content on a specific topic.",
+        "Is called by the Blog Service to gather context.",
+        "Chunks scraped text and upserts it into a user-specific Pinecone namespace.",
+        "Updates the shared 'jobs' table with its progress."
+      ]
+    },
+    {
+      "entityName": "Blog Service",
+      "contents": [
+        "Exposes a POST /onboarding endpoint to receive user answers.",
+        "Triggers the Scraper Service after onboarding is complete.",
+        "Exposes POST /blog/auto-generate and POST /blog/manual-generate endpoints.",
+        "Stores generated drafts in the Supabase 'blog_posts' table.",
+        "Exposes a POST /blog/{blog_id}/approve endpoint to mark a blog as ready for publishing."
+      ]
+    },
+    {
+      "entityName": "Pinecone",
+      "contents": [
+        "Uses the 'user_id' as the namespace to ensure data isolation between tenants."
+      ]
+    },
+    {
+      "entityName": "jobs Table",
+      "contents": [
+        "Schema includes id, user_id, service, job_type, status, progress, error, and result_resource_id.",
+        "Is used by the frontend to poll the status of long-running jobs via the GET /status/{job_id} endpoint."
+      ]
+    }
+  ]
+}
+
+
+Output
+[
+  {
+    "entityName": "Supabase",
+    "addedObservations": [
+      "Provides user authentication via email/password and Google OAuth.",
+      "Stores user onboarding answers in an 'onboarding' table.",
+      "Stores generated blog content in 'blog_posts' and 'blog_seo' tables.",
+      "Provides file storage for media assets in buckets like 'blog_media'.",
+      "Is used for a shared 'jobs' table for tracking asynchronous task status across all microservices."
+    ]
+  },
+  {
+    "entityName": "Scraper Service",
+    "addedObservations": [
+      "Exposes a POST /scraper/profile endpoint for initial user data enrichment.",
+      "Exposes a POST /scraper/topic endpoint for scraping content on a specific topic.",
+      "Is called by the Blog Service to gather context.",
+      "Chunks scraped text and upserts it into a user-specific Pinecone namespace.",
+      "Updates the shared 'jobs' table with its progress."
+    ]
+  },
+  {
+    "entityName": "Blog Service",
+    "addedObservations": [
+      "Exposes a POST /onboarding endpoint to receive user answers.",
+      "Triggers the Scraper Service after onboarding is complete.",
+      "Exposes POST /blog/auto-generate and POST /blog/manual-generate endpoints.",
+      "Stores generated drafts in the Supabase 'blog_posts' table.",
+      "Exposes a POST /blog/{blog_id}/approve endpoint to mark a blog as ready for publishing."
+    ]
+  },
+  {
+    "entityName": "Pinecone",
+    "addedObservations": [
+      "Uses the 'user_id' as the namespace to ensure data isolation between tenants."
+    ]
+  },
+  {
+    "entityName": "jobs Table",
+    "addedObservations": [
+      "Schema includes id, user_id, service, job_type, status, progress, error, and result_resource_id.",
+      "Is used by the frontend to poll the status of long-running jobs via the GET /status/{job_id} endpoint."
+    ]
+  }
+]

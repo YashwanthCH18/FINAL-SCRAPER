@@ -1,0 +1,86 @@
+High-Level Design Document: Scraper Microservice
+1. Overview
+The Scraper Service is a core, stateless microservice within the "Social Media Automation Platform." Its primary responsibility is to fetch web content, process it, and store it as vector embeddings in a Pinecone index. It is designed to be a robust, asynchronous worker that serves two distinct use cases: automatic user profile analysis and on-demand topic research.
+
+The service is built with Python using the FastAPI framework and is designed for deployment as a serverless function (e.g., AWS Lambda).
+
+2. Core Components & Technologies
+Framework: FastAPI
+Primary Datastores:
+Supabase: Used for job tracking and retrieving user onboarding data. All interactions are protected by Row Level Security (RLS).
+Pinecone: Used as the vector database for storing text embeddings. It leverages Pinecone's integrated embedding feature, where the text is sent directly and Pinecone handles the vectorization.
+External APIs:
+RapidAPI (Google Search): Used to find relevant URLs for a given topic during manual scrapes.
+Firecrawl: Used to reliably scrape the content from a given URL, returning clean HTML.
+Key Python Libraries:
+httpx: For making asynchronous HTTP requests to external APIs.
+langchain_text_splitters: For intelligently chunking the scraped text before embedding.
+python-dotenv: For managing environment variables.
+supabase-py, pinecone-client: SDKs for interacting with the primary datastores.
+3. Directory Structure
+scraper_service/app.py
+: The main application file. It contains the FastAPI app, all API endpoints, background worker functions, and database helper functions.
+scraper_service/common/auth.py
+: Contains the 
+get_user_id
+ dependency, which is responsible for JWT validation and establishing the user's session with Supabase for RLS enforcement.
+scraper_service/requirements.txt
+: Lists all Python dependencies.
+.env: (Local file) Stores all secrets and configuration variables, such as API keys and database URLs.
+4. Architectural Flow & API Endpoints
+The service's logic is exposed via three main API endpoints, all of which are secured by JWT authentication.
+
+Authentication (
+get_user_id
+ dependency):
+
+Before any endpoint logic is executed, the 
+get_user_id
+ dependency intercepts the request.
+It extracts the JWT from the Authorization: Bearer <token> header.
+It uses supabase.auth.set_session(token) to validate the token and set the user context for all subsequent Supabase queries in that request. This is critical for enforcing RLS.
+Endpoint 1: POST /scraper/profile (Automatic Onboarding Scrape)
+
+Purpose: To create the user's foundational "Content DNA" after they complete onboarding.
+Trigger: Called by an orchestrator service (e.g., Blog Service) once, immediately after user signup.
+Workflow:
+Receives the request and creates a new job in the Supabase jobs table with job_type: "profile".
+Connects to the onboarding table in Supabase to fetch the user's website (question1) and the core problem they solve (question3).
+Launches a background task (
+crawl_and_embed
+).
+The background task scrapes the user's website, chunks the text, and upserts it into Pinecone.
+Crucially, each vector is tagged with source_type: "profile" and topic: "<user's answer to question3>". This ensures other services can find this data using a predictable key.
+Endpoint 2: POST /scraper/topic (Manual Topic Scrape)
+
+Purpose: To perform on-demand research for a specific blog post or social media update.
+Trigger: Called by the frontend when a user enters a prompt and requests research.
+Workflow:
+Receives a request containing a 
+topic
+ (the user's prompt).
+Creates a new job in the jobs table with job_type: "topic".
+Launches a background task (
+crawl_topic_background
+).
+The background task first calls the RapidAPI service to get a list of relevant URLs for the topic.
+It then calls 
+crawl_and_embed
+ to scrape those URLs.
+Each vector is tagged with source_type: "topic" and topic: "<user's original prompt>". This isolates the research data to the specific job.
+Endpoint 3: GET /status/{job_id} (Job Status Polling)
+
+Purpose: To provide asynchronous feedback to the frontend.
+Trigger: Polled by the frontend after it initiates a scrape and receives a job_id.
+Workflow:
+Fetches the specified job_id from the jobs table in Supabase.
+Verifies that the 
+user_id
+ associated with the job matches the 
+user_id
+ from the JWT to prevent data leakage.
+Returns the job's 
+status
+, progress, and any error messages.
+This document provides a complete, high-level overview of the Scraper Service. It is a well-architected, secure, and scalable component of your platform.
+
