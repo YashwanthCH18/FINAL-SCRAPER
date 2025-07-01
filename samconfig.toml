@@ -1,8 +1,0 @@
-version = 0.1
-[default.deploy.parameters]
-stack_name = "scraper-service-prod"
-resolve_s3 = true
-region = "ap-south-1"
-capabilities = "CAPABILITY_IAM"
-confirm_changeset = true
-parameter_overrides = "SupabaseUrl=\"https://yjnltbrknjjiptppegqp.supabase.co\" SupabaseKey=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inlqbmx0YnJrbmpqaXB0cHBlZ3FwIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc0OTk5ODg5OSwiZXhwIjoyMDY1NTc0ODk5fQ.4vDKqlC5aV6yrL3co_g_-WQ6sHLJzLSdfrDOf_-ESmk\" PineconeApiKey=\"pcsk_6qhzJp_HfwqqjVrw7yPSW4Y3SNkBfAdEUYutXznSdVHSAxP8tiz4yJNuwKfsg1P7e9N2Co\" PineconeEnvironment=\"us-east-1\" PineconeIndex=\"socialauto\" FirecrawlApiKey=\"fc-f774017245f145cea76b17ca0d699db0\" RapidApiKey=\"e360364efbmsh3ec7fd5cb2dbbfcp1e592ejsn15e3a9fe2d94\" RapidApiHost=\"google-api31.p.rapidapi.com\" BlogCallbackUrl=\"\" BlogCallbackToken=\"\""
