@@ -76,6 +76,14 @@ Resources:
           Properties:
             Path: /{proxy+}
             Method: any
+        KeepWarmSchedule:
+          Type: Schedule
+          Properties:
+            Schedule: rate(5 minutes)
+            Name: Scraper-Keep-Warm-Schedule
+            Description: "Invokes the Scraper service every 5 minutes to keep it warm."
+            Enabled: true
+            Input: '{"httpMethod": "GET", "path": "/healthz"}'
 
 Outputs:
   ScraperApiEndpoint:

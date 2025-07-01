@@ -1,55 +1,41 @@
-The Complete Frontend Integration & API Endpoint Guide
-This guide is broken down by the two primary user journeys: Onboarding and Manual Content Creation.
+The Complete Scraper Service API Guide
+This guide outlines the two primary endpoints of the Scraper Service and how the frontend should interact with them.
 
-Journey 1: New User Onboarding & Automatic Profile Analysis
-Goal: A seamless, one-click process where the user provides their core information, and the system automatically learns their brand voice in the background.
+---
 
-Endpoint 1: POST /onboarding (to the Blog Service)
-What it does: This is the master endpoint for the entire onboarding flow. It receives the user's answers to the 5 key questions.
-Why it's required: It's the single trigger for the entire automatic setup process. It saves the user's foundational data and kicks off the background analysis.
-Frontend Integration:
-Where: This is used on the final page of your signup/onboarding process, where the 5 questions are displayed.
-Button: This call is triggered by the main submission button on that page, for example, a button labeled "Complete Setup" or "Get Started".
-Flow:
-The user fills out the 5 questions.
-They click the "Complete Setup" button.
-The frontend packages the 5 answers into a single JSON object.
-It makes a POST request to the Blog Service's /onboarding endpoint with this JSON body and the user's JWT in the Authorization header.
-Upon a successful response (e.g., 200 OK), the frontend's job is done. It should immediately navigate the user to their main dashboard. The user should not have to wait or do anything else.
+### Journey 1: New User Onboarding & Automatic Profile Analysis
 
-Endpoint 2: POST /scraper/profile (to the Scraper Service)
-What it does: This endpoint instructs the Scraper Service to perform a targeted web scrape based on the user's core topic of interest (from onboarding question #3) to build their "Content DNA."
-Why it's required: This is the engine of the automatic analysis. It gathers the raw data needed to understand the user's brand.
-Frontend Integration: NONE.
-This endpoint is never called by the frontend. It is called server-to-server by the Blog Service immediately after the /onboarding call succeeds.
-Why: This is a critical architectural decision. It makes the user experience seamless. The user clicks one button, and the backend handles the complex chain of events. The frontend doesn't need to manage or even know about this second step.
+**Goal:** After a new user completes their onboarding questions, the system automatically scrapes content based on their core topic to build their foundational "Content DNA."
 
-Journey 2: Manual Content Creation (On-Demand Research & Generation)
-Goal: A simple, fire-and-forget process where the user initiates research on a topic and then generates content based on it after a short wait.
+**Endpoint 1: POST /scraper/profile**
 
-Stage A: Gathering Research
-Endpoint 3: POST /scraper/topic (to the Scraper Service)
-What it does: Instructs the Scraper Service to perform a targeted web scrape for a specific topic provided by the user.
-Why it's required: This is the starting point for all on-demand content. It gathers fresh, relevant, third-party context for the AI to use.
-Frontend Integration:
-Where: On any page where a user can generate a new blog post or social media update. There will be a text input field for their prompt.
-Button: This call is triggered by the first action button, which should be labeled "Gather Research" or "Analyze Topic".
-Flow:
-The user types their desired topic (e.g., "SaaS pricing strategies in 2025") into the input field.
-They click the "Gather Research" button.
-The frontend takes the text from the input field and sends it in the body of a POST request to /scraper/topic.
-The API will respond almost instantly with a confirmation message like {"status": "scraping_started"}. It will NOT return a job_id.
-The UI should now change to a "researching" state. For example, disable the input field and show a message like "Research in progress... You can generate content in a minute."
+*   **What it does:** Instructs the Scraper Service to perform a targeted web scrape based on the user's core topic of interest (from onboarding question #3).
+*   **Why it's required:** This is the engine of the automatic analysis. It gathers the raw data needed to understand the user's brand voice for all future automated content generation.
+*   **Frontend Integration:**
+    *   **Where:** This is used immediately after the user successfully submits their 5 onboarding questions.
+    *   **Flow:**
+        1.  The user fills out the 5 questions and clicks "Complete Setup".
+        2.  The frontend first makes a call to save the onboarding data to the database.
+        3.  Upon a successful response for saving the data, the frontend **immediately** makes a second, separate call to `POST /scraper/profile`.
+        4.  This call requires only the user's JWT in the `Authorization` header. The backend will automatically find the user's topic.
+        5.  The API will respond instantly with `{"status": "scraping_started"}`. The frontend can then navigate the user to their dashboard.
 
-Stage B: Generating the Content
-Endpoint 4: POST /blog/manual-generate (to the Blog Service)
-What it does: Takes the user's original prompt and uses the previously scraped research to generate a complete blog post.
-Why it's required: This is the final, value-delivery step where the AI performs its creative work.
-Frontend Integration:
-Where: On the same page, after the research stage has been initiated.
-Button: A button labeled "Generate Blog Post" should be available.
-Flow:
-After clicking "Gather Research," the user waits a short period (e.g., 30-60 seconds) to allow the scraper to work.
-The user clicks the "Generate Blog Post" button.
-The frontend makes a POST request to /blog/manual-generate. The body should contain the original prompt the user typed in Stage A.
-The frontend can then show a loading indicator while the Blog Service generates the final content.
+---
+
+### Journey 2: Manual Content Creation (On-Demand Research)
+
+**Goal:** Allow the user to perform research on any topic, which can then be used to generate specific content like blog posts or social media updates.
+
+**Endpoint 2: POST /scraper/topic**
+
+*   **What it does:** Instructs the Scraper Service to perform a targeted web scrape for a specific topic provided by the user.
+*   **Why it's required:** This is the starting point for all on-demand content. It gathers fresh, relevant, third-party context for the AI to use.
+*   **Frontend Integration:**
+    *   **Where:** On any page where a user can generate new content. There will be a text input field for their topic/prompt.
+    *   **Button:** This call is triggered by the first action button, e.g., "Gather Research" or "Analyze Topic".
+    *   **Flow:**
+        1.  The user types their desired topic (e.g., "SaaS pricing strategies in 2025") into the input field.
+        2.  They click the "Gather Research" button.
+        3.  The frontend takes the text from the input field and sends it in the body of a `POST` request to `/scraper/topic`.
+        4.  The API will respond almost instantly with `{"status": "scraping_started"}`.
+        5.  The UI should now change to a "researching" state. For example, disable the input field and show a message like "Research in progress... You can generate content in a minute."

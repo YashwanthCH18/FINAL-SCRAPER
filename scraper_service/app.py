@@ -15,6 +15,7 @@ from typing import List, Optional, Dict
 
 import httpx
 from fastapi import FastAPI, Depends, HTTPException, BackgroundTasks, Request, Header
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from dotenv import load_dotenv
 
@@ -94,6 +95,27 @@ class TopicRequest(BaseModel):
 # FastAPI application
 # ---------------------------------------------------------------------------
 app = FastAPI(title="Scraper Service", version="0.1.0")
+
+# CORS configuration
+# IMPORTANT: Replace with your actual frontend URLs
+origins = [
+    "http://localhost:3000",  # For local Next.js development
+    "http://192.168.83.157:3000",
+    "http://192.168.58.157:3000",
+    "http://192.168.186.157:3000",
+    "http://192.168.0.203:3000",
+    "https://your-app-name.vercel.app",  # <-- CHANGE THIS to your production Vercel URL
+    # You might also want to allow all Vercel preview URLs like this:
+    # "https://*-your-team-name.vercel.app",
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,  # Allows cookies/authorization headers
+    allow_methods=["*"],    # Allows all methods (GET, POST, etc.)
+    allow_headers=["*"],    # Allows all headers
+)
 
 # ---------------------------------------------------------------------------
 # Crawling & embedding core
