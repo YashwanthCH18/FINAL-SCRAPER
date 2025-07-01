@@ -1,5 +1,4 @@
 fastapi
-uvicorn[standard]
 supabase
 python-dotenv
 httpx
@@ -7,3 +6,4 @@ trafilatura
 pinecone>=3.0.0
 langchain-text-splitters
 PyJWT
+mangum

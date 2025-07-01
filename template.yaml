@@ -1,0 +1,83 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  scraper-service
+
+  SAM template for deploying the FastAPI Scraper Service to AWS Lambda.
+
+Globals:
+  Function:
+    Timeout: 30 # API Gateway has a 29s timeout
+
+Parameters:
+  SupabaseUrl:
+    Type: String
+    Description: The URL of the Supabase project.
+  SupabaseKey:
+    Type: String
+    Description: The service_role key for the Supabase project.
+    NoEcho: true
+  PineconeApiKey:
+    Type: String
+    Description: The API key for Pinecone.
+    NoEcho: true
+  PineconeEnvironment:
+    Type: String
+    Description: The environment for the Pinecone index.
+  PineconeIndex:
+    Type: String
+    Description: The name of the Pinecone index.
+  FirecrawlApiKey:
+    Type: String
+    Description: The API key for Firecrawl.
+    NoEcho: true
+  RapidApiKey:
+    Type: String
+    Description: The API key for RapidAPI.
+    NoEcho: true
+  RapidApiHost:
+    Type: String
+    Description: The host for the RapidAPI Google Search endpoint.
+  BlogCallbackUrl:
+    Type: String
+    Description: (Optional) The callback URL for the Blog Service.
+    Default: ""
+  BlogCallbackToken:
+    Type: String
+    Description: (Optional) The callback token for the Blog Service.
+    Default: ""
+    NoEcho: true
+
+Resources:
+  ScraperFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: scraper_service/
+      Handler: app.handler # Points to the Mangum handler in app.py
+      Runtime: python3.11
+      Architectures:
+        - x86_64
+      MemorySize: 512
+      Environment:
+        Variables:
+          SUPABASE_URL: !Ref SupabaseUrl
+          SUPABASE_KEY: !Ref SupabaseKey
+          PINECONE_API_KEY: !Ref PineconeApiKey
+          PINECONE_ENVIRONMENT: !Ref PineconeEnvironment
+          PINECONE_INDEX: !Ref PineconeIndex
+          FIRECRAWL_API_KEY: !Ref FirecrawlApiKey
+          RAPIDAPI_KEY: !Ref RapidApiKey
+          RAPIDAPI_HOST: !Ref RapidApiHost
+          BLOG_CALLBACK_URL: !Ref BlogCallbackUrl
+          BLOG_CALLBACK_TOKEN: !Ref BlogCallbackToken
+      Events:
+        ScraperApi:
+          Type: Api
+          Properties:
+            Path: /{proxy+}
+            Method: any
+
+Outputs:
+  ScraperApiEndpoint:
+    Description: "API Gateway endpoint URL for Prod stage for Scraper function"
+    Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/"

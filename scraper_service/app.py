@@ -271,3 +271,10 @@ async def scrape_topic(
 @app.get("/healthz")
 async def health():
     return {"status": "ok"}
+
+
+# Add this for AWS Lambda + SAM deployment
+from mangum import Mangum
+
+handler = Mangum(app)
+
