@@ -98,6 +98,13 @@ ipython_config.py
 #   Similar to Pipfile.lock, it is generally recommended to include uv.lock in version control.
 #   This is especially recommended for binary packages to ensure reproducibility, and is more
 #   commonly ignored for libraries.
+
+# AWS SAM
+# Ignore the SAM configuration file which may contain secrets
+samconfig.toml
+
+# Ignore the SAM build artifacts directory
+.aws-sam/
 #uv.lock
 
 # poetry

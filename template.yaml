@@ -5,10 +5,6 @@ Description: >
 
   SAM template for deploying the FastAPI Scraper Service to AWS Lambda.
 
-Globals:
-  Function:
-    Timeout: 30 # API Gateway has a 29s timeout
-
 Parameters:
   SupabaseUrl:
     Type: String
@@ -54,9 +50,10 @@ Resources:
     Properties:
       CodeUri: scraper_service/
       Handler: app.handler # Points to the Mangum handler in app.py
-      Runtime: python3.11
+      Runtime: python3.12
       Architectures:
         - x86_64
+      Timeout: 29 # Max timeout for API Gateway
       MemorySize: 512
       Environment:
         Variables:
@@ -70,6 +67,8 @@ Resources:
           RAPIDAPI_HOST: !Ref RapidApiHost
           BLOG_CALLBACK_URL: !Ref BlogCallbackUrl
           BLOG_CALLBACK_TOKEN: !Ref BlogCallbackToken
+          # Add worker name so the API function knows who to call
+          WORKER_LAMBDA_NAME: !Ref ScraperWorkerFunction
       Events:
         ScraperApi:
           Type: Api
@@ -84,6 +83,34 @@ Resources:
             Description: "Invokes the Scraper service every 5 minutes to keep it warm."
             Enabled: true
             Input: '{"httpMethod": "GET", "path": "/healthz"}'
+      Policies:
+        # Grant permission for this function to invoke the worker function
+        - LambdaInvokePolicy:
+            FunctionName: !Ref ScraperWorkerFunction
+
+  ScraperWorkerFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: scraper_service/
+      Handler: app.worker_handler # A new handler for the worker
+      Runtime: python3.12
+      Architectures:
+        - x86_64
+      Timeout: 300 # 5 minutes for the actual scraping job
+      MemorySize: 512
+      Environment:
+        Variables:
+          # Pass all secrets and config to the Lambda environment
+          SUPABASE_URL: !Ref SupabaseUrl
+          SUPABASE_KEY: !Ref SupabaseKey
+          PINECONE_API_KEY: !Ref PineconeApiKey
+          PINECONE_ENVIRONMENT: !Ref PineconeEnvironment
+          PINECONE_INDEX: !Ref PineconeIndex
+          FIRECRAWL_API_KEY: !Ref FirecrawlApiKey
+          RAPIDAPI_KEY: !Ref RapidApiKey
+          RAPIDAPI_HOST: !Ref RapidApiHost
+          BLOG_CALLBACK_URL: !Ref BlogCallbackUrl
+          BLOG_CALLBACK_TOKEN: !Ref BlogCallbackToken
 
 Outputs:
   ScraperApiEndpoint:

@@ -1,0 +1,9 @@
+fastapi
+mangum
+supabase
+pinecone-client
+httpx
+trafilatura
+langchain-text-splitters
+python-dotenv
+boto3
