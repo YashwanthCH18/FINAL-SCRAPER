@@ -5,6 +5,13 @@ Description: >
 
   SAM template for deploying the FastAPI Scraper Service to AWS Lambda.
 
+Globals:
+  Api:
+    Cors:
+      AllowOrigin: "'*'"
+      AllowHeaders: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+      AllowMethods: "'POST,GET,OPTIONS'"
+
 Parameters:
   SupabaseUrl:
     Type: String

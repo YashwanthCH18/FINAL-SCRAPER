@@ -88,6 +88,7 @@ origins = [
     "http://192.168.186.157:3000",
     "http://192.168.0.203:3000",
     "https://your-app-name.vercel.app",
+    "http://172.22.245.119:3000",
 ]
 app.add_middleware(
     CORSMiddleware,
