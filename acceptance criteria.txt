@@ -1,0 +1,58 @@
+Visitor Experience & Onboarding
+User Story: As a visitor, I want to see a 3D animated AI agent with subtle motion, so I understand the multi-platform power of the product.
+AC: An animated AI agent is visible on the landing page.
+User Story: As a visitor, I want to scroll through testimonials and benefits, so that I can build trust in the platform.
+AC: A dedicated section on the landing page displays user testimonials and key benefits.
+User Story: As a new user, I want to sign up with Google or LinkedIn easily, so that I can get started and access the platform quickly and easily.
+AC: User can successfully create an account using Google or LinkedIn OAuth.
+AC: A new user record is created in the Supabase auth table.
+User Story: As a user, I want to answer 5 guided questions about my business and tone, so content generation feels personalized.
+AC: After signup, the user is presented with the five onboarding questions.
+AC: Answers are successfully saved to the onboarding table in Supabase.
+User Story: As a user, I want to select where I want to post (Blog, LinkedIn, YouTube Shorts, Reels), so I can build multi-platform content.
+AC: The onboarding flow includes a step to select desired posting platforms.
+AC: User's platform choices are saved to their profile.
+User Story: As a user, I want my profile stored securely and reused for generation, so content remains on-brand.
+AC: Onboarding answers trigger a "profile" scrape job.
+AC: Scraped content is stored in Pinecone under the user's unique ID.
+User Story: As a user, I want to be redirected to the main dashboard after onboarding/login, so that I can start using tools immediately.
+AC: Upon completing onboarding or logging in, the user lands on the main dashboard.
+User Story: As a user, I want to modify my onboarding answers in settings, so that my content recommendations remain relevant.
+AC: A settings page allows the user to view and edit their five onboarding answers.
+AC: Updating answers successfully updates the onboarding table.
+Blog Generation
+User Story: As a user, I want to generate long-form blog content that aligns with my tone and audience and saves my time writing articles.
+AC: User can trigger "auto" or "manual" blog generation.
+AC: Generated blog content reflects the user's "Content DNA" and specified tone.
+User Story: As a user, I want a live editor with formatting tools and preview modes, so that I can edit and polish my blog content before publishing.
+AC: A rich-text editor is available for modifying generated blog content.
+AC: The editor includes standard formatting options (headings, bold, lists).
+AC: User can preview the final blog post before publishing.
+LinkedIn Content
+User Story: As a user, I want to create LinkedIn posts (text, carousel, polls) with AI help using my brand tone.
+AC: User can select post type (text, carousel, poll).
+AC: AI generates post content based on the user's brand tone and a source blog.
+User Story: As a user, I want to format LinkedIn content, track the character limit, and preview it before posting.
+AC: The editor shows a live character count for the post.
+AC: A preview accurately shows how the post will appear on LinkedIn.
+User Story: As a user, I want smart hashtags based on post content, so that I can improve my post reach and engagement.
+AC: The system suggests relevant hashtags based on the post's content.
+User Story: As a user, I want to publish my LinkedIn posts through an API in one click directly from the platform.
+AC: A "Publish" button successfully posts the content to the user's connected LinkedIn account.
+Video Content
+User Story: As a user, I want to choose between YouTube Shorts or Instagram Reels and see format previews.
+AC: User can select the target video format (Shorts or Reels).
+AC: The UI shows a preview tailored to the selected format's dimensions.
+User Story: As a user, I want to generate scripts based on goals, tone, and timing so that I don't have to write them manually.
+AC: Script generation is triggered based on a source blog and user-defined parameters.
+AC: The generated script is displayed for user review.
+User Story: As a user, I want to view, edit, and break my script into sections.
+AC: The script is presented in editable sections or scenes.
+AC: User can modify the text within each script section.
+User Story: As a user, I want to upload and manage images, logos, and stock footage for use in videos.
+AC: A media library allows users to upload and view their visual assets.
+User Story: As a user, I want to preview my generated video and export it as MP4 or GIF.
+AC: A video preview is generated from the script and media assets.
+AC: User can download the final video in MP4 or GIF format.
+Feedback submitted
+Generating.

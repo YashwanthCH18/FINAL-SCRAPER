@@ -102,18 +102,27 @@ app.add_middleware(
 # Crawling & embedding core (UNCHANGED)
 # ---------------------------------------------------------------------------
 async def rapid_search(topic: str, max_pages: int) -> List[str]:
-    url = f"https://{RAPID_HOST}/websearch"
-    payload = {"text": topic, "safesearch": "off", "timelimit": "", "region": "wt-wt", "max_results": max_pages}
-    headers = {"X-RapidAPI-Key": RAPID_KEY, "X-RapidAPI-Host": RAPID_HOST, "Content-Type": "application/json"}
+    url = f"https://{RAPID_HOST}/search"
+    params = {
+        "q": topic,
+        "num": max_pages,
+        "gl": "us",
+        "hl": "en",
+        "autocorrect": "true",
+        "page": 1
+    }
+    headers = {"X-RapidAPI-Key": RAPID_KEY, "X-RapidAPI-Host": RAPID_HOST}
     try:
         async with httpx.AsyncClient(timeout=30) as client:
-            r = await client.post(url, headers=headers, json=payload)
+            r = await client.get(url, headers=headers, params=params)
             r.raise_for_status()
             data = r.json()
-            results = data.get('result', []) if isinstance(data, dict) else data
-            urls = [res.get('href') for res in results if isinstance(res, dict) and res.get('href')]
+            # The new API returns results under the 'organic' key
+            results = data.get('organic', [])
+            # The URL is in the 'link' key
+            urls = [res.get('link') for res in results if isinstance(res, dict) and res.get('link')]
             if not urls:
-                print(f"rapid_search warning: No URLs found in response.")
+                print(f"rapid_search warning: No URLs found in response. Raw response: {data}")
             return urls
     except httpx.HTTPStatusError as exc:
         print(f"rapid_search failed with status {exc.response.status_code}: {exc.response.text}")
